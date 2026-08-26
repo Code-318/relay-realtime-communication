@@ -58,31 +58,35 @@ including stronger role-based access control, persistent bans, rate
 limiting and audit logging.
 
 ## Roadmap
+
 ### Foundation
- Authentication
- Real-time messaging
- File uploads
- Moderation tools
- Realtime Database integration
- Cloud Storage integration
+- [x] Authentication
+- [x] Real-time messaging
+- [x] File uploads
+- [x] Moderation tools
+- [x] Realtime Database integration
+- [x] Cloud Storage integration
+
 ### Security
- Trusted role-based authorisation
- Persistent bans
- Input validation
- Rate limiting
- Audit logging
- Improved Firebase Security Rules
+- [ ] Trusted role-based authorisation
+- [ ] Persistent bans
+- [ ] Input validation
+- [ ] Rate limiting
+- [ ] Audit logging
+- [ ] Improved Firebase Security Rules
+
 ### Production
- Automated testing
- Error handling and monitoring
- Improved documentation
- Production deployment
+- [ ] Automated testing
+- [ ] Error handling and monitoring
+- [ ] Improved documentation
+- [ ] Production deployment
+
 ### Potential School Deployment
- Define requirements with school
- School-specific authentication
- Moderation/reporting system
- Privacy and data-retention design
- Pilot deployment
+- [ ] Define requirements with school
+- [ ] School-specific authentication
+- [ ] Moderation/reporting system
+- [ ] Privacy and data-retention design
+- [ ] Pilot deployment
  
 ## Project Goals
 
