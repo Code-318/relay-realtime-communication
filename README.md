@@ -80,13 +80,6 @@ limiting and audit logging.
 - [ ] Error handling and monitoring
 - [ ] Improved documentation
 - [ ] Production deployment
-
-### Potential School Deployment
-- [ ] Define requirements with school
-- [ ] School-specific authentication
-- [ ] Moderation/reporting system
-- [ ] Privacy and data-retention design
-- [ ] Pilot deployment
  
 ## Project Goals
 
