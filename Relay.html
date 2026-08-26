@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Relay</title>
+<style>
+body{font-family:sans-serif;background:#0f1724;color:#e6eef6;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}
+.wrap{width:100%;background:#0b1220;border-radius:12px;display:grid;grid-template-columns:300px 1fr;overflow:hidden;height:100%;}
+.panel{padding:20px;background:#121b2e;display:flex;flex-direction:column;gap:10px;}
+.chat-area{display:flex;flex-direction:column;height:100%;overflow:hidden;}
+.chat-header{padding:15px;border-bottom:1px solid #1b2435;flex-shrink:0;display:flex;justify-content:space-between;align-items:center;}
+.messages{flex:1;overflow-y:auto;padding:15px;display:flex;flex-direction:column;gap:8px;min-height:0;}
+.msg{padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.05);word-break:break-word;position:relative;}
+.msg.me{background:rgba(45,212,191,0.1);}
+.msg.server{background:linear-gradient(90deg,rgba(251,191,36,0.15),rgba(251,191,36,0.05));border-left:3px solid #fbbf24;font-style:italic;}
+.msg.kicked-notice{background:rgba(248,113,113,0.1);border-left:3px solid #f87171;font-style:italic;}
+.msg.muted-notice{background:rgba(148,163,184,0.1);border-left:3px solid #94a3b8;font-style:italic;}
+.msg:hover .del-btn{display:inline-block;}
+.del-btn{display:none;position:absolute;top:6px;right:8px;background:rgba(248,113,113,0.2);border:none;color:#f87171;border-radius:4px;cursor:pointer;font-size:11px;padding:2px 6px;}
+.del-btn:hover{background:rgba(248,113,113,0.4);}
+.kick-btn{display:none;position:absolute;top:6px;right:58px;background:rgba(251,191,36,0.2);border:none;color:#fbbf24;border-radius:4px;cursor:pointer;font-size:11px;padding:2px 6px;}
+.kick-btn:hover{background:rgba(251,191,36,0.4);}
+.msg:hover .kick-btn{display:inline-block;}
+.compose{padding:10px;border-top:1px solid #1b2435;display:flex;gap:8px;flex-shrink:0;background:#0b1220;align-items:center;}
+.compose input[type=text]{flex:1;padding:8px;border-radius:8px;border:none;background:#1b2435;color:#e6eef6;}
+.btn{padding:8px 12px;border:none;border-radius:8px;background:linear-gradient(90deg,#2dd4bf,#60a5fa);color:#05202a;cursor:pointer;font-weight:bold;}
+.btn:hover{opacity:0.9;}
+.btn:disabled{opacity:0.4;cursor:not-allowed;}
+.btn-red{background:linear-gradient(90deg,#f87171,#ef4444)!important;color:#fff!important;}
+.btn-yellow{background:linear-gradient(90deg,#fbbf24,#f59e0b)!important;color:#05202a!important;}
+.btn-grey{background:linear-gradient(90deg,#64748b,#475569)!important;color:#fff!important;}
+.upload-btn{padding:7px 10px;border:none;border-radius:8px;background:#1b2435;color:#9aa6bd;cursor:pointer;font-size:18px;line-height:1;}
+.upload-btn:hover{background:#243050;color:#e6eef6;}
+.upload-btn:disabled{opacity:0.4;cursor:not-allowed;}
+#fileInput{display:none;}
+#filePreview{display:none;padding:6px 10px;background:#1b2435;border-top:1px solid #243050;font-size:0.85em;color:#9aa6bd;align-items:center;gap:8px;flex-shrink:0;}
+#filePreview span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#clearFile{background:none;border:none;color:#f87171;cursor:pointer;font-size:16px;padding:0;}
+#uploadProgress{display:none;padding:4px 10px;background:#0b1220;font-size:0.8em;color:#2dd4bf;flex-shrink:0;}
+.msg-image{max-width:260px;max-height:200px;border-radius:6px;display:block;margin-top:6px;cursor:pointer;}
+.msg-file{display:inline-flex;align-items:center;gap:6px;margin-top:6px;padding:6px 10px;background:rgba(255,255,255,0.07);border-radius:6px;text-decoration:none;color:#60a5fa;font-size:0.9em;}
+.msg-file:hover{background:rgba(255,255,255,0.12);}
+.pop{display:none;position:fixed;z-index:1000;padding-top:80px;left:0;top:0;width:100%;height:100%;overflow:auto;background-color:rgba(0,0,0,0.5);}
+.pop-content{position:relative;background:#f5f5f5;margin:auto;border:2px solid #888;padding:20px;border-radius:20px;width:420px;color:#28282e;box-shadow:0 4px 8px rgba(0,0,0,0.2);text-align:center;}
+.close{position:absolute;color:#000;top:12px;right:12px;font-size:24px;font-weight:bold;cursor:pointer;}
+.close:hover{color:#d1cfcf;}
+#lightbox{display:none;position:fixed;z-index:2000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.85);justify-content:center;align-items:center;}
+#lightbox img{max-width:90%;max-height:90%;border-radius:8px;}
+#lightbox.open{display:flex;}
+/* Admin panel */
+#adminPanel{display:none;margin-top:16px;padding-top:16px;border-top:1px solid #1b2435;}
+#adminPanel h4{color:#fbbf24;margin:0 0 8px 0;font-size:0.85em;text-transform:uppercase;letter-spacing:1px;}
+.admin-btn-row{display:flex;flex-direction:column;gap:6px;}
+.admin-btn-row .btn{flex:1;font-size:0.8em;padding:7px 6px;}
+.admin-tag{font-size:0.7em;background:#fbbf24;color:#05202a;border-radius:4px;padding:1px 5px;font-weight:bold;vertical-align:middle;margin-left:4px;}
+/* User picker inside modals */
+.user-list{max-height:200px;overflow-y:auto;margin:10px 0;border:1px solid #ccc;border-radius:8px;text-align:left;}
+.user-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid #e5e5e5;display:flex;align-items:center;justify-content:space-between;}
+.user-item:last-child{border-bottom:none;}
+.user-item:hover{background:#e8f4ff;}
+.user-item.selected{background:#dbeafe;}
+.user-item .muted-badge{font-size:0.72em;background:#94a3b8;color:#fff;border-radius:4px;padding:1px 5px;}
+</style>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-storage.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <aside class="panel">
+    <h2 id="Instruct">Sign Up / Login</h2>
+    <input type="email" id="emailInput" placeholder="Email...">
+    <input type="password" id="passwordInput" placeholder="Password...">
+    <button id="loginBtn" class="btn">Login</button>
+    <button id="signupBtn" class="btn">Sign Up</button>
+
+    <div id="userView" style="display:none;margin-top:20px;">
+      <div id="currentUser"></div>
+      <button id="logoutBtn" class="btn" style="margin-top:10px;">Log out</button>
+
+      <div id="adminPanel">
+        <h4>⚙ Admin</h4>
+        <div class="admin-btn-row" style="margin-bottom:6px;">
+          <button id="serverMsgBtn" class="btn btn-yellow">📢 Announce</button>
+          <button id="muteUserBtn"  class="btn btn-grey">🔇 Mute</button>
+          <button id="kickUserBtn"   class="btn btn-red">👢 Kick</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Change Password Modal -->
+  <div id="myPop" class="pop">
+    <div class="pop-content">
+      <span class="close" id="closePop">×</span>
+      <h2>Change Password</h2><br>
+      <input type="password" id="currPass" placeholder="Current password" style="width:90%;height:34px;"><br><br>
+      <input type="password" id="newPass" placeholder="New password" style="width:90%;height:34px;"><br><br>
+      <button class="btn" id="changePassBtn2">Set Password</button>
+    </div>
+  </div>
+
+  <!-- Sign Up Modal -->
+  <div id="myPop2" class="pop">
+    <div class="pop-content">
+      <span class="close" id="closePop2">×</span>
+      <h2>Create Account</h2><br>
+      <input type="text" id="username1" placeholder="Enter a username" style="width:90%;height:30px;" maxlength="18"><br><br>
+      <input type="password" id="password1" placeholder="Enter a password" style="width:90%;height:30px;"><br><br>
+      <input type="email" id="email1" placeholder="Input your Email" style="width:90%;height:30px;"><br><br>
+      <button class="btn" id="signupBtn2">Sign Up</button>
+    </div>
+  </div>
+
+  <!-- Delete Account Modal -->
+  <div id="myPop3" class="pop">
+    <div class="pop-content">
+      <span class="close" id="closePop3">×</span>
+      <h2>Delete Account</h2><br>
+      <p style="color:#555;font-size:0.9em;">This permanently deletes your account. This cannot be undone.</p><br>
+      <input type="password" id="deletePass" placeholder="Confirm your password" style="width:90%;height:34px;"><br><br>
+      <button class="btn btn-red" id="confirmDeleteBtn">Yes, delete my account</button>
+    </div>
+  </div>
+
+  <!-- Ban User Modal (from message hover) -->
+  <div id="kickPop" class="pop">
+    <div class="pop-content">
+      <span class="close" id="closeKickPop">×</span>
+      <h2>👢 Kick User</h2><br>
+      <p id="kickTarget" style="color:#555;font-size:0.9em;"></p>
+      <input type="text" id="kickReason" placeholder="Reason (optional)" style="width:90%;height:34px;margin-top:10px;"><br><br>
+      <button class="btn btn-red" id="confirmKickBtn">Kick User</button>
+    </div>
+  </div>
+
+  <!-- Ban User Picker Modal (from admin panel) -->
+  <div id="kickPickerPop" class="pop">
+    <div class="pop-content">
+      <span class="close" id="closeKickPickerPop">×</span>
+      <h2>👢 Kick User</h2>
+      <p style="color:#555;font-size:0.85em;">Select a user to kick:</p>
+      <div class="user-list" id="kickUserList"></div>
+      <input type="text" id="kickPickerReason" placeholder="Reason (optional)" style="width:90%;height:34px;margin-top:8px;border-radius:6px;border:1px solid #ccc;padding:0 8px;"><br><br>
+      <button class="btn btn-red" id="confirmKickPickerBtn">Kick Selected User</button>
+    </div>
+  </div>
+
+  <!-- Mute User Picker Modal -->
+  <div id="mutePickerPop" class="pop">
+    <div class="pop-content">
+      <span class="close" id="closeMutePickerPop">×</span>
+      <h2>🔇 Mute / Unmute User</h2>
+      <p style="color:#555;font-size:0.85em;">Select a user to mute or unmute:</p>
+      <div class="user-list" id="muteUserList"></div><br>
+      <button class="btn btn-grey" id="confirmMuteBtn">Mute / Unmute Selected</button>
+    </div>
+  </div>
+
+  <!-- Server Message Modal -->
+  <div id="serverMsgPop" class="pop">
+    <div class="pop-content">
+      <span class="close" id="closeServerMsgPop">×</span>
+      <h2>📢 Server Message</h2><br>
+      <p style="color:#555;font-size:0.9em;">Sends a highlighted announcement to all users.</p><br>
+      <textarea id="serverMsgText" placeholder="Enter announcement..." style="width:90%;height:80px;border-radius:8px;padding:8px;border:1px solid #ccc;font-family:sans-serif;resize:vertical;"></textarea><br><br>
+      <button class="btn btn-yellow" id="confirmServerMsgBtn">Send Announcement</button>
+    </div>
+  </div>
+
+  <!-- Image lightbox -->
+  <div id="lightbox"><img id="lightboxImg" src="" alt="Full size image"></div>
+
+  <main class="chat-area">
+    <div class="chat-header">
+      <div>
+        <h1 style="margin:0;">Relay</h1>
+        <div id="headerUser" style="font-size:0.85em;color:#9aa6bd;"></div>
+      </div>
+      <div id="rightInfo" style="display:none;"></div>
+    </div>
+
+    <div class="messages" id="messages"></div>
+
+    <div id="filePreview">
+      <span id="fileName">No file selected</span>
+      <button id="clearFile" title="Remove file">✕</button>
+    </div>
+    <div id="uploadProgress">Uploading... <span id="uploadPct">0</span>%</div>
+
+    <div class="compose">
+      <!-- FIX: removed accept attribute — MIME type unreliable for .py; validation now done by extension in JS -->
+      <input type="file" id="fileInput">
+      <button class="upload-btn" id="uploadBtn" disabled title="Attach file">📎</button>
+      <input type="text" id="msgInput" placeholder="Sign in to send" disabled>
+      <button id="sendBtn" class="btn" disabled>Send</button>
+    </div>
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+const firebaseConfig = {
+  apiKey: "AIzaSyBa-2qLQOyu7WfTJq96-UwiAh7kjIjpfic",
+  authDomain: "my-first-project-fb14a.firebaseapp.com",
+  databaseURL: "https://my-first-project-fb14a-default-rtdb.firebaseio.com",
+  projectId: "my-first-project-fb14a",
+  storageBucket: "my-first-project-fb14a.firebasestorage.app",
+  messagingSenderId: "571066567740",
+  appId: "1:571066567740:web:7fe3c92f7cd26ea7de8739",
+  measurementId: "G-7TWWSKJHH7"
+};
+
+  firebase.initializeApp(firebaseConfig);
+  const db      = firebase.database();
+  const storage = firebase.storage();
+
+  // ── Element refs ─────────────────────────────────────
+  const emailInput       = document.getElementById('emailInput');
+  const passwordInput       = document.getElementById('passwordInput');
+  const loginBtn            = document.getElementById('loginBtn');
+  const signupBtn           = document.getElementById('signupBtn');
+  const logoutBtn           = document.getElementById('logoutBtn');
+  const currentUserEl       = document.getElementById('currentUser');
+  const headerUser          = document.getElementById('headerUser');
+  const Instruct            = document.getElementById('Instruct');
+  const msgInput            = document.getElementById('msgInput');
+  const sendBtn             = document.getElementById('sendBtn');
+  const messagesEl          = document.getElementById('messages');
+  const userView            = document.getElementById('userView');
+  const uploadBtn           = document.getElementById('uploadBtn');
+  const fileInput           = document.getElementById('fileInput');
+  const filePreview         = document.getElementById('filePreview');
+  const fileNameEl          = document.getElementById('fileName');
+  const clearFileBtn        = document.getElementById('clearFile');
+  const uploadProgress      = document.getElementById('uploadProgress');
+  const uploadPct           = document.getElementById('uploadPct');
+  const lightbox            = document.getElementById('lightbox');
+  const lightboxImg         = document.getElementById('lightboxImg');
+  const adminPanel          = document.getElementById('adminPanel');
+
+  const myPop2              = document.getElementById('myPop2');
+  const closePop2           = document.getElementById('closePop2');
+  const username1           = document.getElementById('username1');
+  const password1           = document.getElementById('password1');
+  const email1                = document.getElementById('email1');
+  const signupBtn2          = document.getElementById('signupBtn2');
+
+  const myPop               = document.getElementById('myPop');
+  const closePop            = document.getElementById('closePop');
+  const currPass            = document.getElementById('currPass');
+  const newPass             = document.getElementById('newPass');
+  const changePassBtn2      = document.getElementById('changePassBtn2');
+
+  const myPop3              = document.getElementById('myPop3');
+  const closePop3           = document.getElementById('closePop3');
+  const deletePass          = document.getElementById('deletePass');
+  const confirmDeleteBtn    = document.getElementById('confirmDeleteBtn');
+
+  const kickPop              = document.getElementById('kickPop');
+  const closeKickPop         = document.getElementById('closeKickPop');
+  const kickTarget           = document.getElementById('kickTarget');
+  const kickReason           = document.getElementById('kickReason');
+  const confirmKickBtn       = document.getElementById('confirmKickBtn');
+
+  const kickPickerPop        = document.getElementById('kickPickerPop');
+  const closeKickPickerPop   = document.getElementById('closeKickPickerPop');
+  const kickUserList         = document.getElementById('kickUserList');
+  const kickPickerReason     = document.getElementById('kickPickerReason');
+  const confirmKickPickerBtn = document.getElementById('confirmKickPickerBtn');
+  const kickUserBtn          = document.getElementById('kickUserBtn');
+
+  const mutePickerPop       = document.getElementById('mutePickerPop');
+  const closeMutePickerPop  = document.getElementById('closeMutePickerPop');
+  const muteUserList        = document.getElementById('muteUserList');
+  const confirmMuteBtn      = document.getElementById('confirmMuteBtn');
+  const muteUserBtn         = document.getElementById('muteUserBtn');
+
+  const serverMsgPop        = document.getElementById('serverMsgPop');
+  const closeServerMsgPop   = document.getElementById('closeServerMsgPop');
+  const serverMsgText       = document.getElementById('serverMsgText');
+  const confirmServerMsgBtn = document.getElementById('confirmServerMsgBtn');
+  const serverMsgBtn        = document.getElementById('serverMsgBtn');
+
+  let currentUser     = null;
+  let selectedFile    = null;
+  let activeUpload    = null;
+  let uploadCancelled = false;
+  let kickTargetData   = null;
+  let pickerSelected  = null;
+  const renderedKeys  = new Set();
+
+  // ── Modals close ────────────────────────────────────
+  signupBtn.addEventListener('click',            () => { myPop2.style.display         = "block"; });
+  closePop2.addEventListener('click',            () => { myPop2.style.display         = "none"; });
+  closePop.addEventListener('click',             () => { myPop.style.display          = "none"; });
+  closePop3.addEventListener('click',            () => { myPop3.style.display         = "none"; });
+  closeKickPop.addEventListener('click',          () => { kickPop.style.display         = "none"; });
+  closeKickPickerPop.addEventListener('click',    () => { kickPickerPop.style.display   = "none"; });
+  closeMutePickerPop.addEventListener('click',   () => { mutePickerPop.style.display  = "none"; });
+  closeServerMsgPop.addEventListener('click',    () => { serverMsgPop.style.display   = "none"; });
+  lightbox.addEventListener('click',             () => { lightbox.classList.remove('open'); });
+
+  function openChangePassword() {
+    currPass.value = ''; newPass.value = '';
+    myPop.style.display = 'block';
+  }
+
+  // ── Helper: load all non-admin users into a picker list ──
+  async function loadUserPicker(containerEl) {
+    containerEl.innerHTML = '<div style="padding:10px;color:#888;">Loading...</div>';
+    pickerSelected = null;
+    const snap = await db.ref('users').once('value');
+    containerEl.innerHTML = '';
+    snap.forEach(child => {
+      const u   = child.val();
+      const uid = child.key;
+      if (u.admin) return;
+      const item = document.createElement('div');
+      item.className = 'user-item';
+      const mutedBadge = u.muted ? '<span class="muted-badge">MUTED</span>' : '';
+      item.innerHTML = `<span><strong>${u.name}</strong> <span style="font-size:0.8em;color:#666">${u.handle}</span></span>${mutedBadge}`;
+      item.addEventListener('click', () => {
+        containerEl.querySelectorAll('.user-item').forEach(i => i.classList.remove('selected'));
+        item.classList.add('selected');
+        pickerSelected = { uid, name: u.name, handle: u.handle, muted: !!u.muted };
+      });
+      containerEl.appendChild(item);
+    });
+    if (!containerEl.children.length) {
+      containerEl.innerHTML = '<div style="padding:10px;color:#888;">No users found.</div>';
+    }
+  }
+
+  // ── File picker ──────────────────────────────────────
+  uploadBtn.addEventListener('click', () => fileInput.click());
+
+  // FIX: validate by file extension — MIME type is unreliable for .py files
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const allowed = /\.(jpg|jpeg|png|gif|webp|svg|py|txt|md|csv|json|js|html|css)$/i;
+    if (!allowed.test(file.name)) {
+      alert("File type not allowed.\nAllowed: images, .py, .txt, .md, .csv, .json, .js, .html, .css");
+      fileInput.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File too large — max 5 MB.");
+      fileInput.value = '';
+      return;
+    }
+    selectedFile = file;
+    fileNameEl.textContent = file.name;
+    filePreview.style.display = 'flex';
+  });
+
+  clearFileBtn.addEventListener('click', () => {
+    if (activeUpload) { activeUpload.cancel(); activeUpload = null; }
+    uploadCancelled = true;
+    selectedFile    = null;
+    fileInput.value = '';
+    filePreview.style.display    = 'none';
+    uploadProgress.style.display = 'none';
+    sendBtn.disabled   = false;
+    uploadBtn.disabled = false;
+  });
+
+  // ── Sign-up ──────────────────────────────────────────
+  signupBtn2.addEventListener('click', async () => {
+    const u = username1.value.trim();
+    const p = password1.value.trim();
+    const n = email1.value.trim();
+    if (!u || !p || !n) return alert("Fill all fields");
+    const email = n;
+    try {
+      const cred = await firebase.auth().createUserWithEmailAndPassword(email, p);
+      // Save username in displayName — DB profile only written after email is verified
+      await cred.user.updateProfile({ displayName: u });
+      await cred.user.sendEmailVerification();
+      // Delete the auth account if they never verify — clean up unverified orphans
+      // We sign out immediately; they must verify before the DB profile is created
+      await firebase.auth().signOut();
+      alert("Check your SPAM Folder if you can't find the email!!");
+      myPop2.style.display = "none";
+      username1.value = ''; password1.value = ''; email1.value = '';
+    } catch (err) { alert(err.message); }
+  });
+
+  // ── Login ────────────────────────────────────────────
+  loginBtn.addEventListener('click', async () => {
+    const email2 = emailInput.value.trim();
+    const pass     = passwordInput.value.trim();
+    if (!email2 || !pass) return alert("Enter your email and password");
+    const email = email2;
+    try {
+      const cred = await firebase.auth().signInWithEmailAndPassword(email, pass);
+      if (!cred.user.emailVerified) {
+        await firebase.auth().signOut();
+        return alert("Please verify your email before logging in.");
+      }
+      // onAuthStateChanged handles everything else
+    } catch (err) {
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') alert("Incorrect password.");
+      else if (err.code === 'auth/user-not-found') alert("No account found. Please sign up first.");
+      else alert(err.message);
+    }
+  });
+
+  // ── Logout ───────────────────────────────────────────
+  logoutBtn.addEventListener('click', () => firebase.auth().signOut());
+
+  // ── Change Password ──────────────────────────────────
+  changePassBtn2.addEventListener('click', async () => {
+    const curr = currPass.value.trim();
+    const neu  = newPass.value.trim();
+    if (!curr || !neu) return alert("Please fill both fields");
+    try {
+      const user = firebase.auth().currentUser;
+      if (!user) return alert("You must be logged in");
+      const cred = firebase.auth.EmailAuthProvider.credential(currentUser.handle, curr);
+      await user.reauthenticateWithCredential(cred);
+      await user.updatePassword(neu);
+      alert("Password changed successfully!");
+      myPop.style.display = 'none';
+    } catch (err) { alert("Error: " + err.message); }
+  });
+
+  // ── Delete Account ───────────────────────────────────
+  confirmDeleteBtn.addEventListener('click', async () => {
+    const pass = deletePass.value.trim();
+    if (!pass) return alert("Please enter your password to confirm.");
+    try {
+      const user = firebase.auth().currentUser;
+      if (!user) return alert("Not logged in.");
+      const cred = firebase.auth.EmailAuthProvider.credential(currentUser.handle, pass);
+      await user.reauthenticateWithCredential(cred);
+      await db.ref('users/' + currentUser.uid).remove();
+      await user.delete();
+      myPop3.style.display = 'none';
+      alert("Your account has been deleted.");
+    } catch (err) {
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') alert("Incorrect password.");
+      else alert("Error: " + err.message);
+    }
+  });
+
+  // ── Admin: Ban from message hover ────────────────────
+  confirmKickBtn.addEventListener('click', async () => {
+    if (!kickTargetData) return;
+    const reason = kickReason.value.trim();
+    try {
+      if (kickTargetData.uid) {
+        await db.ref('users/' + kickTargetData.uid).remove();
+      }
+      await db.ref('messages').push({
+        userName: '⚙ Server', userHandle: '',
+        text: `🚫 ${kickTargetData.name} has been kicked.${reason ? ' Reason: ' + reason : ''}`,
+        type: 'kicked-notice', time: new Date().toISOString()
+      });
+      kickPop.style.display = 'none';
+      kickReason.value = '';
+      kickTargetData = null;
+    } catch (err) { alert("Error: " + err.message); }
+  });
+
+  // ── Admin: Ban from picker ───────────────────────────
+  kickUserBtn.addEventListener('click', async () => {
+    kickPickerReason.value = '';
+    pickerSelected = null;
+    await loadUserPicker(kickUserList);
+    kickPickerPop.style.display = 'block';
+  });
+
+  confirmKickPickerBtn.addEventListener('click', async () => {
+    if (!pickerSelected) return alert("Select a user first.");
+    const reason = kickPickerReason.value.trim();
+    try {
+      await db.ref('users/' + pickerSelected.uid).remove();
+      await db.ref('messages').push({
+        userName: '⚙ Server', userHandle: '',
+        text: `🚫 ${pickerSelected.name} has been kicked.${reason ? ' Reason: ' + reason : ''}`,
+        type: 'kicked-notice', time: new Date().toISOString()
+      });
+      kickPickerPop.style.display = 'none';
+      pickerSelected = null;
+    } catch (err) { alert("Error: " + err.message); }
+  });
+
+  // ── Admin: Mute from picker ──────────────────────────
+  muteUserBtn.addEventListener('click', async () => {
+    pickerSelected = null;
+    await loadUserPicker(muteUserList);
+    mutePickerPop.style.display = 'block';
+  });
+
+  confirmMuteBtn.addEventListener('click', async () => {
+    if (!pickerSelected) return alert("Select a user first.");
+    const nowMuted = !pickerSelected.muted;
+    try {
+      await db.ref('users/' + pickerSelected.uid).update({ muted: nowMuted });
+      const action = nowMuted ? 'muted' : 'unmuted';
+      await db.ref('messages').push({
+        userName: '⚙ Server', userHandle: '',
+        text: `🔇 ${pickerSelected.name} has been ${action}.`,
+        type: 'muted-notice', time: new Date().toISOString()
+      });
+      mutePickerPop.style.display = 'none';
+      pickerSelected = null;
+    } catch (err) { alert("Error: " + err.message); }
+  });
+
+  // ── Admin: Server Message ────────────────────────────
+  serverMsgBtn.addEventListener('click', () => {
+    serverMsgText.value = '';
+    serverMsgPop.style.display = 'block';
+  });
+
+  confirmServerMsgBtn.addEventListener('click', async () => {
+    const text = serverMsgText.value.trim();
+    if (!text) return alert("Enter a message.");
+    try {
+      await db.ref('messages').push({
+        userName: '⚙ Server Message', userHandle: '',
+        text: `📢 ${text}`, type: 'server',
+        time: new Date().toISOString()
+      });
+      serverMsgPop.style.display = 'none';
+      serverMsgText.value = '';
+    } catch (err) { alert("Error: " + err.message); }
+  });
+
+  // ── UI update ─────────────────────────────────────────
+  function updateUI() {
+    if (currentUser) {
+      emailInput.style.display = 'none';
+      passwordInput.style.display = 'none';
+      signupBtn.style.display     = 'none';
+      loginBtn.style.display      = 'none';
+      userView.style.display      = 'block';
+      const adminTag = currentUser.admin ? '<span class="admin-tag">ADMIN</span>' : '';
+      currentUserEl.innerHTML = `${currentUser.name} ${adminTag}<br><span style="font-size:0.8em;color:#9aa6bd">${currentUser.handle}</span>`;
+      headerUser.innerHTML    = `${currentUser.name}${adminTag}`;
+      Instruct.textContent    = `Hello ${currentUser.name}`;
+      msgInput.disabled       = currentUser.muted;
+      msgInput.placeholder    = currentUser.muted ? '🔇 You are muted' : 'Type a message...';
+      sendBtn.disabled        = currentUser.muted;
+      uploadBtn.disabled      = currentUser.muted;
+      adminPanel.style.display = currentUser.admin ? 'block' : 'none';
+
+      const right = document.getElementById('rightInfo');
+      right.style.display    = 'flex';
+      right.style.gap        = '8px';
+      right.style.alignItems = 'center';
+      right.innerHTML = `
+        <button class="btn" id="changePassBtn">Change Password</button>
+        <button class="btn btn-red" id="deleteAccBtnHeader">Delete Account</button>`;
+      document.getElementById('changePassBtn').onclick = openChangePassword;
+      document.getElementById('deleteAccBtnHeader').onclick = () => {
+        deletePass.value = '';
+        myPop3.style.display = 'block';
+      };
+    } else {
+      emailInput.style.display = 'block';
+      passwordInput.style.display = 'block';
+      signupBtn.style.display     = 'inline-block';
+      loginBtn.style.display      = 'inline-block';
+      userView.style.display      = 'none';
+      adminPanel.style.display    = 'none';
+      headerUser.textContent      = 'Not signed in';
+      Instruct.textContent        = 'Sign Up / Login';
+      msgInput.disabled           = true;
+      msgInput.placeholder        = 'Sign in to send';
+      sendBtn.disabled            = true;
+      uploadBtn.disabled          = true;
+      document.getElementById('rightInfo').style.display = 'none';
+    }
+  }
+
+  // ── Render messages ───────────────────────────────────
+  function isImage(name) { return /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(name); }
+  function fileIcon(name) {
+    if (/\.py$/i.test(name))   return '🐍';
+    if (/\.js$/i.test(name))   return '📜';
+    if (/\.html$/i.test(name)) return '🌐';
+    if (/\.css$/i.test(name))  return '🎨';
+    if (/\.json$/i.test(name)) return '📋';
+    if (/\.csv$/i.test(name))  return '📊';
+    if (/\.md$/i.test(name))   return '📝';
+    return '📄';
+  }
+
+  function renderMessage(key, msg) {
+    if (!msg || renderedKeys.has(key)) return;
+    renderedKeys.add(key);
+
+    const div  = document.createElement('div');
+    const isMe = currentUser && currentUser.handle === msg.userHandle;
+
+    let cls = 'msg';
+    if      (msg.type === 'server')        cls += ' server';
+    else if (msg.type === 'kicked-notice') cls += ' kicked-notice';
+    else if (msg.type === 'muted-notice')  cls += ' muted-notice';
+    else if (isMe)                         cls += ' me';
+    div.className = cls;
+
+    const time = msg.time ? new Date(msg.time).toLocaleTimeString() : '';
+    let body = msg.text || '';
+
+    if (msg.fileURL && msg.fileName) {
+      if (isImage(msg.fileName)) {
+        body += `<br><img class="msg-image" src="${msg.fileURL}" alt="${msg.fileName}" title="Click to enlarge">`;
+      } else {
+        body += `<br><a class="msg-file" href="${msg.fileURL}" target="_blank" rel="noopener">${fileIcon(msg.fileName)} ${msg.fileName}</a>`;
+      }
+    }
+
+    const adminBadge = msg.isAdmin ? ' <span class="admin-tag">ADMIN</span>' : '';
+    const headerLine = (msg.type === 'server' || msg.type === 'kicked-notice' || msg.type === 'muted-notice')
+      ? `<strong>${msg.userName}</strong>`
+      : `<strong>${msg.userName}</strong>${adminBadge} <span style="color:#9aa6bd;font-size:0.8em">${msg.userHandle}</span>`;
+
+    div.innerHTML = `${headerLine}<br>${body}<br><small style="color:#9aa6bd">${time}</small>`;
+
+    // Admin controls
+    if (currentUser && currentUser.admin && msg.type !== 'server' && msg.type !== 'kicked-notice' && msg.type !== 'muted-notice') {
+      const banBtn = document.createElement('button');
+      banBtn.className   = 'kick-btn';
+      banBtn.textContent = 'Ban';
+      banBtn.onclick = () => {
+        kickTargetData = { uid: msg.userUid || null, name: msg.userName, handle: msg.userHandle };
+        kickTarget.textContent = `Ban ${msg.userName} (${msg.userHandle})?`;
+        kickReason.value = '';
+        kickPop.style.display = 'block';
+      };
+      div.appendChild(banBtn);
+    }
+
+    if (currentUser && currentUser.admin) {
+      const delBtn = document.createElement('button');
+      delBtn.className   = 'del-btn';
+      delBtn.textContent = 'Delete';
+      delBtn.onclick = async () => {
+        if (!confirm('Delete this message?')) return;
+        if (msg.fileURL) {
+          try {
+            let ref;
+            if (msg.storagePath) {
+              ref = storage.ref(msg.storagePath);
+            } else {
+              // Fallback: extract path from Firebase Storage download URL
+              const match = msg.fileURL.match(/\/o\/(.+?)\?/);
+              if (match) ref = storage.ref(decodeURIComponent(match[1]));
+            }
+            if (ref) await ref.delete();
+          } catch (e) { /* file already gone, ignore */ }
+        }
+        await db.ref('messages/' + key).remove();
+        div.remove();
+      };
+      div.appendChild(delBtn);
+    }
+
+    const img = div.querySelector('.msg-image');
+    if (img) {
+      img.addEventListener('click', () => {
+        lightboxImg.src = msg.fileURL;
+        lightbox.classList.add('open');
+      });
+    }
+
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function loadMessages() {
+    db.ref('messages').off();
+    renderedKeys.clear();
+    messagesEl.innerHTML = '';
+    db.ref('messages').on('child_added', snap => renderMessage(snap.key, snap.val()));
+  }
+
+  // ── Send message ──────────────────────────────────────
+  async function sendMessage() {
+    const text = msgInput.value.trim();
+    if (!text && !selectedFile) return;
+    if (!currentUser || currentUser.muted) return;
+
+    sendBtn.disabled   = true;
+    uploadBtn.disabled = true;
+
+    let fileURL     = null;
+    let fileName    = null;
+    let storagePath = null;
+
+    if (selectedFile) {
+      storagePath = `uploads/${currentUser.uid}/${Date.now()}_${selectedFile.name}`;
+      const ref   = storage.ref(storagePath);
+      const task  = ref.put(selectedFile);
+      activeUpload    = task;
+      uploadCancelled = false;
+      uploadProgress.style.display = 'block';
+
+      try {
+        await new Promise((resolve, reject) => {
+          task.on('state_changed',
+            snap => { uploadPct.textContent = Math.round((snap.bytesTransferred / snap.totalBytes) * 100); },
+            reject, resolve
+          );
+        });
+        if (uploadCancelled) {
+          uploadProgress.style.display = 'none';
+          sendBtn.disabled = false; uploadBtn.disabled = false;
+          return;
+        }
+        fileURL  = await ref.getDownloadURL();
+        fileName = selectedFile.name;
+      } catch (err) {
+        uploadProgress.style.display = 'none';
+        sendBtn.disabled = false; uploadBtn.disabled = false;
+        if (!uploadCancelled) alert("Upload failed: " + err.message);
+        return;
+      }
+
+      activeUpload = null;
+      uploadProgress.style.display = 'none';
+      filePreview.style.display    = 'none';
+      selectedFile    = null;
+      fileInput.value = '';
+    }
+
+    await db.ref('messages').push({
+      userName:    currentUser.name,
+      userHandle:  currentUser.handle,
+      userUid:     currentUser.uid,
+      isAdmin:     currentUser.admin || false,
+      text:        text || '',
+      fileURL:     fileURL     || null,
+      fileName:    fileName    || null,
+      storagePath: storagePath || null,
+      time:        new Date().toISOString()
+    });
+
+    msgInput.value     = '';
+    sendBtn.disabled   = false;
+    uploadBtn.disabled = false;
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  msgInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+
+  // ── Auth state ────────────────────────────────────────
+  firebase.auth().onAuthStateChanged(async user => {
+    if (user && user.emailVerified) {
+      try {
+        const snap    = await db.ref('users/' + user.uid).once('value');
+        let profile = snap.val();
+
+        if (!profile) {
+          // No DB profile — either first login or was kicked and is rejoining
+          const name = user.displayName || user.email;
+          profile = { name, handle: user.email };
+          await db.ref('users/' + user.uid).set(profile);
+        }
+
+        currentUser = {
+          uid:    user.uid,
+          name:   profile.name,
+          handle: profile.handle,
+          admin:  !!profile.admin,
+          muted:  !!profile.muted
+        };
+
+        // Real-time listener: react instantly to being kicked or muted
+        db.ref('users/' + user.uid).on('value', snap => {
+          if (!currentUser || currentUser.uid !== user.uid) return;
+          if (!snap.exists()) {
+            // Profile deleted = kicked — sign out immediately
+            firebase.auth().signOut();
+            return;
+          }
+          // Mute/unmute takes effect instantly without refresh
+          const updated = snap.val();
+          currentUser.muted    = !!updated.muted;
+          msgInput.disabled    = currentUser.muted;
+          msgInput.placeholder = currentUser.muted ? '🔇 You are muted' : 'Type a message...';
+          sendBtn.disabled     = currentUser.muted;
+          uploadBtn.disabled   = currentUser.muted;
+        });
+      } catch {
+        currentUser = { uid: user.uid, name: user.email, handle: user.email, admin: false, muted: false };
+      }
+    } else {
+      if (user && !user.emailVerified) {
+        alert("Please verify your email first.");
+        firebase.auth().signOut();
+        return;
+      }
+      currentUser = null;
+    }
+    updateUI();
+    loadMessages();
+  });
+});
+</script>
+</body>
+</html>
