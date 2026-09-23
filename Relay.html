@@ -229,14 +229,19 @@ const firebaseConfig = {
       }
 
       return messaging.getToken({
-        vapidKey: 'BDzDOpjxjIb1Ra1lB_iKA9JGDIb-Qhk6F3voA8DmkTbIhUGpn0g0gxoHg_a2EhMaaxURNccPH3iTonjoU-xPNSM'
+        vapidKey: 'YOUR_PUBLIC_VAPID_KEY'
       });
     })
     .then(function(token) {
       if (token) {
         console.log('FCM token:', token);
 
-        // We'll save this token to your database in the next step.
+        const tokenKey = db.ref('notificationTokens').push().key;
+
+        return db.ref('notificationTokens/' + tokenKey).set({
+          token: token,
+          createdAt: firebase.database.ServerValue.TIMESTAMP
+        });
       }
     })
     .catch(function(error) {
