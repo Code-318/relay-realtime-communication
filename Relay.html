@@ -219,6 +219,29 @@ const firebaseConfig = {
   firebase.initializeApp(firebaseConfig);
   const db      = firebase.database();
   const storage = firebase.storage();
+  const messaging = firebase.messaging();
+
+  Notification.requestPermission()
+    .then(function(permission) {
+      if (permission !== 'granted') {
+        console.log('Notification permission was not granted.');
+        return;
+      }
+
+      return messaging.getToken({
+        vapidKey: 'BDzDOpjxjIb1Ra1lB_iKA9JGDIb-Qhk6F3voA8DmkTbIhUGpn0g0gxoHg_a2EhMaaxURNccPH3iTonjoU-xPNSM'
+      });
+    })
+    .then(function(token) {
+      if (token) {
+        console.log('FCM token:', token);
+
+        // We'll save this token to your database in the next step.
+      }
+    })
+    .catch(function(error) {
+      console.error('Notification setup error:', error);
+    });
 
   // ── Element refs ─────────────────────────────────────
   const emailInput       = document.getElementById('emailInput');
