@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My GitHub Website</title>
+
+    <!-- OneSignal SDK Link -->
+    <script src="https://onesignal.com" defer></script>
+    <script>
+      window.OneSignal = window.OneSignal || [];
+      OneSignal.push(function() {
+        OneSignal.init({
+          appId: "YOUR-ONESIGNAL-APP-ID-HERE",
+          safari_web_id: "YOUR-SAFARI-WEB-ID-IF-APPLICABLE",
+          notifyButton: {
+            enable: true, /* This adds a subscription bell icon in the corner */
+          },
+        });
+      });
+    </script>
+</head>
+<body>
+    <h1>Welcome to my website!</h1>
+    <p>You will now see a prompt asking to allow notifications.</p>
+</body>
+</html>
